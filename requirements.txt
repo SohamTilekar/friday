@@ -1,0 +1,10 @@
+pyaudio
+pynput
+langchain-groq
+langchain
+groq
+numexpr
+duckduckgo-search
+wikipedia
+arxiv
+xmltodict
