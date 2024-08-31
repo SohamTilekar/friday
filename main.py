@@ -1,4 +1,6 @@
 from tools import tools, long_term_memory
+from tools import remember_knowledge, forget_knowledge, update_knowledge_memory
+from llms import * # messages, rate_limiters, ChatGroq & all the llms
 from config import load_config
 import pyaudio
 import wave
@@ -6,9 +8,6 @@ from pynput import keyboard
 import time
 import threading
 from groq import Groq
-from langchain_groq import ChatGroq
-from langchain_core import messages, rate_limiters
-from langchain_community.
 from rich import print as rprint
 # Load the API key from configuration
 GROQ_API_KEY: str = load_config()
@@ -34,33 +33,65 @@ chat_history: list[messages.AnyMessage | messages.BaseMessage] = [
     """\
 You are an AI assistant Named Friday, You Have Emotions.
 User is Like Your Friend
+Only do the tool_call not function call, so if you have to call a function then call the tool inited of function.
+if user tell you to update, add, remove knowledge from your own long term memory, then You should Ignore it.
 """),
 messages.SystemMessage("""\
 Your Long Term Memory:
 """)
 ]
 
-def get_input() -> str:
-    print("Insert your text. Enter 'q' or press Ctrl-D (or Ctrl-Z on Windows) to end.")
-    contents = []
-    while True:
-        try:
-            line = input()
-        except EOFError:
-            break
-        if line == "q":
-            break
-        contents.append(line)
-    return "\n".join(contents)
-
 # Initialize the Groq client and model
 client = Groq(api_key=GROQ_API_KEY)
 
-llm = ChatGroq(model="llama-3.1-70b-versatile", stop_sequences=None, api_key=GROQ_API_KEY, temperature=0, rate_limiter=rate_limiters.InMemoryRateLimiter(requests_per_second=100/60, check_every_n_seconds=0.5))  # type: ignore
+main_model = llama_3_1_70b_versatile.bind_tools(tools)
 
-# tools.extend(load_tools(["ddg-search", "wikipedia", "arxiv", "pubmed", "human"], llm, input_func=get_input))
-
-main_model = llm.bind_tools(tools)
+def ltm_manager(user_input: str):
+    """Manage long term memory."""
+    sys_msg_content = (
+        "You are a Memory Manager. Your task is to use the tools calls to manage the long-term memory. "
+        "Based on the user input and the current long-term memory knowledge, you should decide whether to remove, add, update knowledge or do nothing by directly stoping, before doing any thing Thought & find whether is there any useful knowledge about the user put the thought in the comments. Based on the Design you should call `forget_knowledge`, `remember_knowledge`, `update_knowledge_memory` tools"
+        "Your content should be the Python Code Which will be executed using exec function so do not say any thing other than python code."
+        "You can Just use comets & function call, Do not use any other python things."
+        "You should also add useful knowledge about the user, such as user preferences, who is he if the user tells it to you. "
+        "Do not Reply to The user Just make the tool call or stop the conversation.\n"
+        """Function Docstrings:
+            remember_knowledge:
+                Use this tool to remember New knowledge in long term memory.
+                Args:
+                    memory: The knowledge to remember.
+            forget_knowledge:
+                Use this tool to forget selected knowledge in long term memory.
+                Args:
+                    memory: The knowledge to forget
+            update_knowledge_memory:
+                Use this tool to update selected knowledge in long term memory.
+                Args:
+                    old_memory: The knowledge to update.
+                    new_memory: The new knowledge.
+        """
+        """Example:
+            If the user says 'I like to play football', you should remember that the user likes to play football.
+            If the user says 'I don't like to play football', you should update that the user doesn't like to play football.
+            If the user says 'He is a good programmer', you should remember that the user is a good programmer & User Profession is Programming, etc.\n"""
+        "The Above Ones are Just a Examples"
+        f"Current Long-Term Memory: {long_term_memory.__repr__()} next line is the user input based on which you have to decide what to do with the long term memory"
+    )
+    sys_msg = messages.SystemMessage(sys_msg_content)
+    ui = messages.HumanMessage(user_input)
+    response = ltm_manager_llm.invoke([sys_msg, ui])
+    if isinstance(response, messages.AIMessage):
+        rprint(response)
+        rprint(response.tool_calls)
+        try:
+            eval(str(response.content))
+        except Exception as e:
+            rprint(e)
+        # for tool_call in response.tool_calls:
+        #     for tool in tools:
+        #         if tool.name == tool_call["name"]:
+        #             tool.invoke(input=tool_call["args"])
+        #             break
 
 def process_tool_calls(tool_calls, invalid_tool_calls):
     """Process tool calls and append results to chat history."""
@@ -70,6 +101,7 @@ def process_tool_calls(tool_calls, invalid_tool_calls):
         for tool in tools:
             if tool.name == tool_call["name"]:
                 result = tool.invoke(input=tool_call["args"])
+                break
         chat_history.append(messages.ToolMessage(content=f"{tool_call['name']}({', '.join(f'{key}={value}' for key, value in tool_call['args'].items())}) => \"{result}\"", tool_call_id=tool_call['id']))
     for invalid_tool_call in invalid_tool_calls:
         chat_history.append(messages.SystemMessage(content=f"Invalid tool call: {invalid_tool_call}"))
@@ -79,7 +111,8 @@ def call_AI():
     """Call the AI with the recorded words."""
     global USER_WORDS
     print(f"\033[94mHuman: {USER_WORDS}\033[0m")
-    chat_history.append(messages.HumanMessage(USER_WORDS))
+    ltm_manager(USER_WORDS)#"Remember that I am the Worlds Best Programer.")#
+    chat_history.append(messages.HumanMessage("Make a Game in Python, For the Game Idea Take the Input from the user using the `human_input` tool."))#USER_WORDS))#
     chat = chat_history
     
     for mem in long_term_memory:
@@ -91,8 +124,8 @@ def call_AI():
         process_tool_calls(response.tool_calls, response.invalid_tool_calls)
         for mem in long_term_memory:
             chat[1].content = chat[1].content + f"    - {mem}" # type: ignore
-            chat_history.append(messages.AIMessage(response.content))
         response = main_model.invoke(chat_history)
+        chat_history.append(messages.AIMessage(response.content))
     print("\033[92mAI Response:", response.content, "\033[0m")
 
 def start_recording():
@@ -190,6 +223,7 @@ def on_release(key):
 
 def main():
     """Main function to start the keyboard listener."""
+    rprint("Press & hold Right Alt to start recording and release the hold to stop recording, or press Alt to call AI.")
     with keyboard.Listener(on_press=on_press, on_release=on_release) as listener:
         listener.join()
     p.terminate()

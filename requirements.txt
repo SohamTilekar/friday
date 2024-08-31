@@ -1,6 +1,7 @@
 pyaudio
 pynput
 langchain-groq
+langchain-community
 langchain
 groq
 numexpr
@@ -8,3 +9,4 @@ duckduckgo-search
 wikipedia
 arxiv
 xmltodict
+pymupdf

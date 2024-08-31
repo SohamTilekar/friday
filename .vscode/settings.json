@@ -1,11 +1,17 @@
 {
     "cSpell.words": [
+        "abatch",
+        "ainvoke",
+        "arxiv",
         "GROQ",
         "langchain",
+        "llms",
         "mixtral",
+        "Pubmed",
         "pyaudio",
         "pynput",
         "rprint",
+        "safesearch",
         "Streamlit"
     ]
 }

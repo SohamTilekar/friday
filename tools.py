@@ -40,7 +40,6 @@ def random():
     """
     return "random number between 0 & 1 is " + f"{rand.random():.5f}"
 
-@tool_decorator
 def remember_knowledge(memory: str):
     """\
     Use this tool to remember New knowledge in long term memory.
@@ -50,7 +49,6 @@ def remember_knowledge(memory: str):
     long_term_memory.add(memory)
     return f"Remembered: {memory}"
 
-@tool_decorator
 def forget_knowledge(memory: str):
     """\
     Use this tool to forget selected knowledge in long term memory.
@@ -60,7 +58,6 @@ def forget_knowledge(memory: str):
     long_term_memory.remove(memory)
     return f"Forgot: {memory}"
 
-@tool_decorator
 def update_knowledge_memory(old_memory: str, new_memory: str):
     """\
     Use this tool to update selected knowledge in long term memory.
@@ -77,9 +74,9 @@ tools: list[Any] = [
     current_date,
     randint,
     random,
-    remember_knowledge,
-    forget_knowledge,
-    update_knowledge_memory
+    # remember_knowledge,
+    # forget_knowledge,
+    # update_knowledge_memory
 ]
 
 long_term_memory: set[str] = set()
