@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat Interface</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.5.0/styles/github-dark.min.css">
+    <style>
+        #container {
+            display: flex;
+            height: 100vh;
+        }
+
+        #left-side {
+            flex: 70%;
+            display: flex;
+            flex-direction: column;
+        }
+
+        #right-side {
+            flex: 30%;
+            background-color: #181818;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 50px;
+            color: #ffffff;
+            font-weight: bold;
+            border-left: 1px solid #424242;
+        }
+
+        body {
+            background-color: #101010;
+            color: #e0e0e0;
+            font-family: 'Roboto', sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        #chat-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            word-wrap: break-word;
+            scrollbar-width: thin;
+            scrollbar-color: #424242 #101010;
+        }
+
+        #chat-container::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        #chat-container::-webkit-scrollbar-thumb {
+            background-color: #424242;
+            border-radius: 10px;
+        }
+
+        .message {
+            margin-bottom: 15px;
+            padding: 15px;
+            border-radius: 8px;
+            max-width: fit-content;
+            min-width: 40%;
+            word-wrap: break-word;
+            white-space: pre-wrap;
+            position: relative;
+            box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.2);
+            font-size: 16px;
+        }
+
+        .ai-message {
+            background-color: #2e2e2e;
+            text-align: left;
+        }
+
+        .human-message {
+            background-color: #1e88e5;
+            text-align: right;
+            margin-left: auto;
+            color: #ffffff;
+        }
+
+        .function-message {
+            background-color: #8e24aa;
+            text-align: left;
+            color: #ffffff;
+        }
+
+        .system-message {
+            background-color: #4f4f4f;
+            text-align: left;
+            color: #e0e0e0;
+        }
+
+        .tool-message {
+            background-color: #2e7d32;
+            text-align: left;
+            color: #ffffff;
+        }
+
+        .tool-call {
+            background-color: #424242;
+            color: #e0e0e0;
+            padding: 5px;
+            border-radius: 5px;
+            margin-bottom: 5px;
+        }
+
+        #input-container {
+            display: flex;
+            align-items: center;
+            padding: 15px;
+            background-color: #181818;
+            border-top: 1px solid #424242;
+        }
+
+        #message-input {
+            flex: 1;
+            padding: 15px;
+            border: none;
+            border-radius: 8px;
+            background-color: #2e2e2e;
+            color: #e0e0e0;
+            margin-right: 10px;
+            resize: none;
+            height: auto;
+            font-size: 16px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        #send-button {
+            width: 50px;
+            height: 50px;
+            padding: 0;
+            border: none;
+            border-radius: 50%;
+            background-color: #ffffff;
+            color: #101010;
+            cursor: pointer;
+            font-size: 20px;
+            transition: background-color 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #send-button:hover {
+            background-color: #e0e0e0;
+        }
+
+        .toggle-button {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            padding: 3px 8px;
+            background-color: #424242;
+            color: #e0e0e0;
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 20px;
+            line-height: 1;
+            transition: background-color 0.3s ease;
+        }
+
+        .toggle-button:hover {
+            background-color: #616161;
+        }
+
+        .copy-button {
+            width: 24px;
+            height: 24px;
+            padding: 0;
+            border: none;
+            border-radius: 10%;
+            cursor: pointer;
+            font-size: 20px;
+            transition: background-color 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .copy-button:hover {
+            background-color: #757575;
+        }
+
+        .message-content {
+            display: block;
+        }
+
+        .message-header {
+            font-weight: bold;
+            margin-bottom: 8px;
+            font-size: 14px;
+            color: #bdbdbd;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.5.0/highlight.min.js"></script>
+    <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
+    <script>
+        function createMessageElement(message) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message ' + getMessageClass(message.type);
+
+            // Create the toggle button
+            const toggleButton = document.createElement('button');
+            toggleButton.className = 'toggle-button';
+            toggleButton.textContent = '-';
+            toggleButton.onclick = function () {
+                const contentDiv = messageDiv.querySelector('.message-content');
+                const header = messageDiv.querySelector('.message-header');
+                if (contentDiv.style.display === 'none') {
+                    contentDiv.style.display = 'block';
+                    toggleButton.textContent = '-';
+                    header.textContent = `${message.type.toUpperCase()}: ${message.context || ''}\n${message.date_time}`;
+                } else {
+                    contentDiv.style.display = 'none';
+                    toggleButton.textContent = '+';
+                    header.textContent = `${message.type.toUpperCase()}: ...`;
+                }
+            };
+
+            messageDiv.appendChild(toggleButton);
+
+            // Create the message header
+            const header = document.createElement('div');
+            header.className = 'message-header';
+            header.style.fontWeight = 'bold';
+            header.style.marginBottom = '5px';
+            header.textContent = `${message.type.toUpperCase()}: ${message.context || ''}\n${message.date_time}`;
+            messageDiv.appendChild(header);
+
+            // Create the message content wrapper
+            const contentDiv = document.createElement('div');
+            contentDiv.className = 'message-content';
+
+            // Render Markdown content
+            if (message.type === 'ai') {
+                if (typeof message.content !== 'string') {
+                    message.content.forEach((toolCall) => {
+                        const toolCallDiv = document.createElement('div');
+                        toolCallDiv.className = 'tool-call';
+                        toolCallDiv.textContent = toolCall.name + '(' + Object.entries(toolCall.args).map(([key, value]) => `${key}=${value}`).join(', ') + ')';
+                        contentDiv.appendChild(toolCallDiv);
+                    });
+                }
+                else {
+                    const renderedMarkdown = marked.parse(message.content);
+                    contentDiv.innerHTML += renderedMarkdown;
+                }
+            }
+            else {
+                const renderedMarkdown = marked.parse(message.content);
+                contentDiv.innerHTML += renderedMarkdown;
+            }
+
+            // Highlight code blocks and add copy buttons
+            addCopyButtonsToCodeBlocks(contentDiv);
+
+            messageDiv.appendChild(contentDiv);
+
+            // Add the copy button to the entire message
+            const messageCopyButton = createCopyButton(message.content);
+            messageDiv.appendChild(messageCopyButton);
+            return messageDiv;
+        }
+
+        function addCopyButtonsToCodeBlocks(contentDiv) {
+            contentDiv.querySelectorAll('pre code').forEach((block) => {
+                hljs.highlightElement(block);
+                const copyButton = createCopyButton(block.innerText);
+                block.parentNode.appendChild(copyButton);
+            });
+        }
+
+        function createCopyButton(text) {
+            const copyButton = document.createElement('button');
+            copyButton.className = 'copy-button';
+            copyButton.innerHTML = `
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" class="icon-md-heavy">
+            <path fill-rule="evenodd" clip-rule="evenodd" d="M7 5C7 3.34315 8.34315 2 10 2H19C20.6569 2 22 3.34315 22 5V14C22 15.6569 20.6569 17 19 17H17V19C17 20.6569 15.6569 22 14 22H5C3.34315 22 2 20.6569 2 19V10C2 8.34315 3.34315 7 5 7H7V5ZM9 7H14C15.6569 7 17 8.34315 17 10V15H19C19.5523 15 20 14.5523 20 14V5C20 4.44772 19.5523 4 19 4H10C9.44772 4 9 4.44772 9 5V7ZM5 9C4.44772 9 4 9.44772 4 10V19C4 19.5523 4.44772 20 5 20H14C14.5523 20 15 19.5523 15 19V10C15 9.44772 14.5523 9 14 9H5Z" fill="currentColor"></path>
+        </svg>`;
+            copyButton.onclick = function () {
+                copyToClipboard(text);
+            };
+            return copyButton;
+        }
+
+        function renderChatHistory(chatHistory) {
+            console.log(chatHistory);
+            const chatContainer = document.getElementById('chat-container');
+            chatContainer.innerHTML = '';
+            chatHistory.forEach((message) => {
+                const messageElement = createMessageElement(message);
+                chatContainer.appendChild(messageElement);
+            });
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        async function sendMessage() {
+            const messageInput = document.getElementById('message-input');
+            const messageContent = messageInput.value;
+
+            if (messageContent.trim() === '') return;
+
+            // Clear input field and reset height
+            messageInput.value = '';
+            adjustTextareaHeight();
+
+            // Locally render the user's message
+            const localMessage = {
+                type: 'human',
+                content: messageContent,
+                date_time: new Date().toLocaleString()
+            };
+            const chatContainer = document.getElementById('chat-container');
+            const messageElement = createMessageElement(localMessage, chatContainer);
+            chatContainer.appendChild(messageElement);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+
+            // Send the request to the server
+            try {
+                const response = await fetch('/message', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: messageContent })
+                });
+
+                const updatedChatHistory = await response.json();
+                renderChatHistory(updatedChatHistory);
+            } catch (error) {
+                console.error('Error sending message:', error);
+            }
+        }
+
+        function copyToClipboard(text) {
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+        }
+
+        function adjustTextareaHeight() {
+            const textarea = document.getElementById('message-input');
+            textarea.style.height = 'auto';
+            textarea.style.height = `${textarea.scrollHeight}px`;
+        }
+
+        function getMessageClass(type) {
+            switch (type) {
+                case 'ai': return 'ai-message';
+                case 'human': return 'human-message';
+                case 'function': return 'function-message';
+                case 'system': return 'system-message';
+                case 'tool': return 'tool-message';
+                default: return '';
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', function () {
+            const chatHistory = {{ chat_history | tojson | safe
+        }};
+        renderChatHistory(chatHistory);
+
+        const messageInput = document.getElementById('message-input');
+        messageInput.addEventListener('input', adjustTextareaHeight);
+
+        messageInput.addEventListener('keydown', function (event) {
+            if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                sendMessage();
+            } else if (event.key === 'Enter' && event.shiftKey) {
+                event.preventDefault();
+                const start = this.selectionStart;
+                const end = this.selectionEnd;
+                this.value = this.value.substring(0, start) + '\n' + this.value.substring(end);
+                this.selectionStart = this.selectionEnd = start + 1;
+            }
+        });
+});
+        const eventSource = new EventSource('/face_updates');
+
+        // Listen for updates from the server
+        eventSource.onmessage = function (event) {
+            const { url, name } = JSON.parse(event.data);
+            const img = document.getElementById('ai-face');
+            img.src = url; // Update the image source to the new URL
+            img.alt = name; // Update the alt text with the new name
+            img.title = name; // Update the title with the new name
+        };
+    </script>
+</head>
+
+<body>
+    <div id="container">
+        <div id="left-side">
+            <div id="chat-container"></div>
+            <div id="input-container">
+                <textarea id="message-input" placeholder="Type a message..."></textarea>
+                <button id="send-button" onclick="sendMessage()">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor"
+                        viewBox="0 0 24 24">
+                        <path d="M2 21l21-9L2 3v7l15 2-15 2v7z"></path>
+                    </svg>
+                </button>
+            </div>
+        </div>
+        <div id="right-side">
+            <img id="ai-face" src="" alt="AI Face" style="max-width: 100%; max-height: 100%;" title="AI Face">
+        </div>
+    </div>
+</body>
+
+</html>

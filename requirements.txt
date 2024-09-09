@@ -10,3 +10,5 @@ wikipedia
 arxiv
 xmltodict
 pymupdf
+pymilvus
+langchain_milvus
