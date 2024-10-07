@@ -1,4 +1,4 @@
-pyaudio
+emoji
 pynput
 langchain-groq
 langchain-community
@@ -12,3 +12,12 @@ xmltodict
 pymupdf
 pymilvus
 langchain_milvus
+google-generativeai
+google-api-python-client
+google-auth-httplib2
+google-auth-oauthlib
+schedule
+flask
+rich
+stackapi
+customtkinter

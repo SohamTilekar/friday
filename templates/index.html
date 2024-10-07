@@ -20,14 +20,24 @@
 
         #right-side {
             flex: 30%;
+            display: flex;
+            flex-direction: column;
             background-color: #181818;
+            border-left: 1px solid #424242;
+        }
+
+        #top-right,
+        #bottom-right {
+            flex: 1;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 50px;
             color: #ffffff;
-            font-weight: bold;
-            border-left: 1px solid #424242;
+            border-bottom: 1px solid #424242;
+        }
+
+        #bottom-right {
+            border-bottom: none;
         }
 
         body {
@@ -46,6 +56,7 @@
             overflow-y: auto;
             padding: 20px;
             word-wrap: break-word;
+            overflow-wrap: break-word;
             scrollbar-width: thin;
             scrollbar-color: #424242 #101010;
         }
@@ -66,10 +77,10 @@
             max-width: fit-content;
             min-width: 40%;
             word-wrap: break-word;
+            overflow-wrap: break-word;
             white-space: pre-wrap;
             position: relative;
             box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.2);
-            font-size: 16px;
         }
 
         .ai-message {
@@ -128,7 +139,6 @@
             margin-right: 10px;
             resize: none;
             height: auto;
-            font-size: 16px;
             max-height: 200px;
             overflow-y: auto;
         }
@@ -142,7 +152,6 @@
             background-color: #ffffff;
             color: #101010;
             cursor: pointer;
-            font-size: 20px;
             transition: background-color 0.3s ease;
             display: flex;
             align-items: center;
@@ -163,7 +172,6 @@
             border: none;
             border-radius: 50%;
             cursor: pointer;
-            font-size: 20px;
             line-height: 1;
             transition: background-color 0.3s ease;
         }
@@ -179,7 +187,6 @@
             border: none;
             border-radius: 10%;
             cursor: pointer;
-            font-size: 20px;
             transition: background-color 0.3s ease;
             display: flex;
             align-items: center;
@@ -192,19 +199,374 @@
 
         .message-content {
             display: block;
+            overflow-wrap: break-word;
+            word-break: break-word;
+            white-space: pre-wrap;
         }
 
         .message-header {
             font-weight: bold;
             margin-bottom: 8px;
-            font-size: 14px;
             color: #bdbdbd;
+        }
+
+        /* Upload */
+        #drop-zone {
+            border: 2px dashed #424242;
+            padding: 20px;
+            text-align: center;
+            color: #e0e0e0;
+            margin-right: 10px;
+            border-radius: 8px;
+            transition: background-color 0.3s ease;
+        }
+
+        #drop-zone:hover {
+            background-color: #2e2e2e;
+            cursor: pointer;
+        }
+
+        #drop-zone.dragover {
+            background-color: #616161;
+        }
+
+        .preview-container {
+            position: relative;
+            display: inline-block;
+            margin: 10px;
+        }
+
+        .preview-remove {
+            position: absolute;
+            top: 0;
+            right: 0;
+            cursor: pointer;
+            color: red;
+            font-size: 18px;
+        }
+
+        .preview-image,
+        .preview-video {
+            display: block;
+            margin: 10px 0;
+            max-width: 100px;
+            max-height: 100px;
+        }
+
+        .preview-text {
+            max-width: 100px;
+            max-height: 100px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .preview-raw {
+            max-width: 100px;
+            max-height: 100px;
+            background-color: #2e2e2e;
+            color: #e0e0e0;
+            padding: 10px;
+            text-align: center;
+            border-radius: 5px;
+        }
+
+        /* GUI */
+
+        pre,
+        code {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+        }
+
+        pre {
+            overflow-x: auto;
+            overflow-wrap: break-word;
+            background-color: #1e1e1e;
+            padding: 10px;
+            border-radius: 5px;
+        }
+
+        code {
+            background-color: #2e2e2e;
+            padding: 2px 4px;
+            overflow-x: auto;
+            border-radius: 3px;
+        }
+
+        .notification {
+            border: 1px solid #007bff;
+            background-color: #e7f3ff;
+            padding: 10px;
+            margin: 5px;
+            border-radius: 4px;
+        }
+
+        .dark-theme .notification {
+            border-color: #4a90e2;
+            background-color: #283142;
+        }
+
+        .panel {
+            border: 1px solid #ccc;
+            padding: 10px;
+            margin: 5px;
+        }
+
+        .dark-theme .panel {
+            border-color: #555;
+            background-color: #2d2d2d;
+        }
+
+        progress {
+            width: 100%;
+        }
+
+        .tabs {
+            display: flex;
+            flex-direction: column;
+            border: 1px solid #ccc;
+        }
+
+        .tab {
+            padding: 10px;
+            border-bottom: 1px solid #ccc;
+        }
+
+        .dark-theme .tab {
+            border-bottom-color: #555;
+        }
+
+        .tab[data-selected="true"] {
+            background-color: #f1f1f1;
+            font-weight: bold;
+        }
+
+        .dark-theme .tab[data-selected="true"] {
+            background-color: #444;
+        }
+
+        button {
+            padding: 5px 10px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        .dark-theme button {
+            background-color: #4a90e2;
+        }
+
+        input[type="text"],
+        input[type="password"],
+        input[type="date"],
+        input[type="range"],
+        select {
+            padding: 5px;
+            margin: 5px 0;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+
+        .dark-theme input[type="text"],
+        .dark-theme input[type="password"],
+        .dark-theme input[type="date"],
+        .dark-theme input[type="range"],
+        .dark-theme select {
+            background-color: #333;
+            border-color: #555;
+            color: #ccc;
+        }
+
+        ul {
+            list-style-type: disc;
+            padding-left: 20px;
+        }
+
+        .dark-theme ul {
+            color: #ccc;
+        }
+
+        img {
+            max-width: 100%;
+            height: auto;
+            margin: 10px 0;
+        }
+
+        /* Table Styles */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 10px 0;
+        }
+
+        th,
+        td {
+            padding: 10px;
+            border: 1px solid #ccc;
+            text-align: left;
+        }
+
+        th {
+            background-color: #f9f9f9;
+            font-weight: bold;
+        }
+
+        .dark-theme table {
+            border-color: #555;
+        }
+
+        .dark-theme th {
+            background-color: #333;
+            color: #fff;
+        }
+
+        .dark-theme td {
+            background-color: #2d2d2d;
+            color: #ccc;
+        }
+
+        /* Dark Theme Toggle */
+        .theme-toggle {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background-color: #007bff;
+            color: #fff;
+            border: none;
+            padding: 5px 10px;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+
+        .dark-theme .theme-toggle {
+            background-color: #4a90e2;
+        }
+
+        .dark-theme {
+            background-color: #1c1c1c;
+            color: #cccccc;
         }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.5.0/highlight.min.js"></script>
     <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
     <script>
+        const supportedFileTypes = [
+            'image/png', 'image/jpeg', 'image/webp', 'image/heic', 'image/heif',
+            'video/mp4', 'video/mpeg', 'video/mov', 'video/avi', 'video/x-flv',
+            'video/mpg', 'video/webm', 'video/wmv', 'video/3gpp',
+            'audio/wav', 'audio/mp3', 'audio/aiff', 'audio/aac', 'audio/ogg', 'audio/flac'
+        ];
+        let uploadedFiles = []; // Global array to store uploaded file data
+
+        function handleDragOver(event) {
+            event.preventDefault();
+            document.getElementById('drop-zone').classList.add('dragover');
+        }
+
+        function handleDrop(event) {
+            event.preventDefault();
+            document.getElementById('drop-zone').classList.remove('dragover');
+
+            const files = event.dataTransfer.files;
+            handleFiles(files);
+        }
+
+        function handleFileUpload(event) {
+            const files = event.target.files;
+            handleFiles(files);
+        }
+        function handleTextFile(file, textData, previewElement) {
+            previewElement.innerHTML = `<div class="preview-text">${file.name}</div>`;
+
+            uploadedFiles.push({
+                data: textData, // No conversion needed for text files
+                type: file.type || 'text/plain'
+            });
+        }
+        function handleFiles(files) {
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                if (file.type.split('/')[0] !== "text") {
+                    if (!supportedFileTypes.includes(file.type)) {
+                        alert(`Unsupported file type: ${file.type}`);
+                        continue;  // Skip unsupported files
+                    }
+                }
+
+                const fileType = file.type.split('/')[0];
+                const reader = new FileReader();
+
+                reader.onload = function (e) {
+                    const previewContainer = document.getElementById('preview-container');
+                    const previewElement = document.createElement('div');
+                    previewElement.classList.add('preview-container');
+
+                    if (fileType === 'image') {
+                        // Handle supported image formats (PNG, JPEG, WEBP, HEIC, HEIF)
+                        previewElement.innerHTML = `<img class="preview-image" src="${e.target.result}" alt="${file.name}">`;
+                        uploadedFiles.push({
+                            data: e.target.result.split(',')[1], // Base64 without metadata
+                            type: file.type
+                        });
+                    } else if (fileType === 'video') {
+                        // Handle supported video formats
+                        previewElement.innerHTML = `<video class="preview-video" controls src="${e.target.result}"></video>`;
+                        uploadedFiles.push({
+                            data: e.target.result.split(',')[1], // Base64 without metadata
+                            type: file.type
+                        });
+                    } else if (fileType === 'audio') {
+                        // Handle supported audio formats
+                        previewElement.innerHTML = `<audio class="preview-audio" controls src="${e.target.result}"></audio>`;
+                        uploadedFiles.push({
+                            data: e.target.result.split(',')[1], // Base64 without metadata
+                            type: file.type
+                        });
+                    } else if (fileType === 'text' || fileType === '') {
+                        // Handle text or any raw file containing readable text
+                        handleTextFile(file, e.target.result, previewElement);
+                    }
+
+                    const removeBtn = document.createElement('span');
+                    removeBtn.classList.add('preview-remove');
+                    removeBtn.innerHTML = '✕';
+                    removeBtn.onclick = function () {
+                        removeFile(i, previewElement);
+                    };
+                    previewElement.appendChild(removeBtn);
+                    previewContainer.appendChild(previewElement);
+                };
+
+                // Based on file type, read files appropriately
+                if (fileType === 'image' || fileType === 'video' || fileType === 'audio') {
+                    reader.readAsDataURL(file);
+                } else {
+                    reader.readAsText(file);
+                }
+            }
+        }
+
+        function removeFile(index, previewElement) {
+            uploadedFiles.splice(index, 1); // Remove from the uploadedFiles array
+            previewElement.remove(); // Remove preview from the UI
+        }
+
+        function urlShorter(content) {
+            return content.replace(/(?<!\]\()\[https?:\/\/[a-zA-Z0-9\-._~:\/?#\[\]@!$&'()*+,;=%]{10,}/g, (match) => {
+                // Extract the domain name from the URL, excluding "http://" or "https://"
+                let domain = match.match(/https?:\/\/([^\/]+)/)[1]; // Only capture the domain part
+                return `[${domain}/...](` + match + ')';
+            });
+        }
+
         function createMessageElement(message) {
             const messageDiv = document.createElement('div');
             messageDiv.className = 'message ' + getMessageClass(message.type);
@@ -252,12 +614,24 @@
                     });
                 }
                 else {
-                    const renderedMarkdown = marked.parse(message.content);
+                    const renderer = new marked.Renderer();
+                    renderer.code = function (code, language) {
+                        const className = language ? `language-${language}` : '';
+                        return `<pre><code class="${className}">${code}</code></pre>`;
+                    };
+
+                    const renderedMarkdown = marked.parse(urlShorter(message.content));
                     contentDiv.innerHTML += renderedMarkdown;
                 }
             }
             else {
-                const renderedMarkdown = marked.parse(message.content);
+                const renderer = new marked.Renderer();
+                renderer.code = function (code, language) {
+                    const className = language ? `language-${language}` : '';
+                    return `<pre><code class="${className}">${code}</code></pre>`;
+                };
+
+                const renderedMarkdown = marked.parse(urlShorter(message.content));
                 contentDiv.innerHTML += renderedMarkdown;
             }
 
@@ -294,7 +668,6 @@
         }
 
         function renderChatHistory(chatHistory) {
-            console.log(chatHistory);
             const chatContainer = document.getElementById('chat-container');
             chatContainer.innerHTML = '';
             chatHistory.forEach((message) => {
@@ -330,7 +703,7 @@
                 const response = await fetch('/message', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ message: messageContent })
+                    body: JSON.stringify({ message: messageContent, files: uploadedFiles })
                 });
 
                 const updatedChatHistory = await response.json();
@@ -338,6 +711,11 @@
             } catch (error) {
                 console.error('Error sending message:', error);
             }
+
+            // Reset after sending
+            uploadedFiles = [];
+            document.getElementById('file-input').value = null;
+            document.getElementById('preview-container').innerHTML = '';
         }
 
         function copyToClipboard(text) {
@@ -352,7 +730,7 @@
         function adjustTextareaHeight() {
             const textarea = document.getElementById('message-input');
             textarea.style.height = 'auto';
-            textarea.style.height = `${textarea.scrollHeight}px`;
+            textarea.style.height = (textarea.scrollHeight - 25) + 'px';
         }
 
         function getMessageClass(type) {
@@ -397,6 +775,33 @@
             img.alt = name; // Update the alt text with the new name
             img.title = name; // Update the title with the new name
         };
+        // Function to make a request to /gui and update the GUI
+        function fetchAndUpdateGui() {
+            fetch('/gui')
+                .then(response => response.json()) // Parse the response as JSON
+                .then(data => {
+                    const guiContent = data.gui; // Extract the value at the key 'gui'
+
+                    // Check if the AI GUI already exists
+                    let existingGui = document.getElementById('ai-gui');
+
+                    if (existingGui) {
+                        // Replace the existing GUI
+                        existingGui.innerHTML = guiContent;
+                    } else {
+                        // Insert the GUI above the AI face if it doesn't exist
+                        const rightSide = document.getElementById('top-right');
+                        const tempDiv = document.createElement('div');
+                        tempDiv.id = 'ai-gui';
+                        tempDiv.innerHTML = guiContent;
+                        rightSide.append(tempDiv, rightSide.firstChild);
+                    }
+                })
+                .catch(error => console.error('Error fetching GUI:', error));
+        }
+        fetchAndUpdateGui()
+        // Fetch the GUI every 4 seconds
+        setInterval(fetchAndUpdateGui, 4000);
     </script>
 </head>
 
@@ -406,6 +811,16 @@
             <div id="chat-container"></div>
             <div id="input-container">
                 <textarea id="message-input" placeholder="Type a message..."></textarea>
+                <div id="image-drop-zone" ondrop="handleDrop(event)" ondragover="handleDragOver(event)"
+                    onclick="document.getElementById('image-input').click()">
+                    <div id="drop-zone" ondrop="handleDrop(event)" ondragover="handleDragOver(event)"
+                        onclick="document.getElementById('file-input').click()">
+                        <label id="file-input-label" style="cursor: pointer;">Upload Files</label>
+                        <input type="file" id="file-input" multiple accept="image/*, video/*, text/*, .exe"
+                            onchange="handleFileUpload(event)" style="display:none;">
+                        <div id="preview-container"></div>
+                    </div>
+                </div>
                 <button id="send-button" onclick="sendMessage()">
                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor"
                         viewBox="0 0 24 24">
@@ -415,7 +830,10 @@
             </div>
         </div>
         <div id="right-side">
-            <img id="ai-face" src="" alt="AI Face" style="max-width: 100%; max-height: 100%;" title="AI Face">
+            <div id="top-right"></div>
+            <div id="bottom-right">
+                <img id="ai-face" src="" alt="AI Face" title="AI Face">
+            </div>
         </div>
     </div>
 </body>
