@@ -191,9 +191,6 @@ def get_gui():
     except Exception as e:
         return jsonify({"gui": f"<gui><notification title='Error'>{gui_state}</notification></gui>"})
 
-# with app.app_context():
-#     app.add_url_rule('/favicon.ico', redirect_to=url_for('static', filename='favicon.webp'))
-
 def process_tool_calls(response: messages.AIMessage):
     """Process tool calls and append results to chat history."""
     global gui
