@@ -4,10 +4,12 @@ temp.*
 temp_*
 credentials.json
 reminders.pkl
-__pycache__
-.vscode
+*/__pycache__/*
+.vscode/*
 chat_history.json
 token.json
 AI_DIR/Projects/*
 AI_DIR/user_upload/*
 .idea
+chat_history.json
+mails.json
