@@ -676,6 +676,7 @@
                             chatContainer.appendChild(messageElement);
                         });
                         chatContainer.scrollTop = chatContainer.scrollHeight;
+                        fetchAndUpdateGui()
                     }
 
                     async function sendMessage() {
@@ -709,6 +710,7 @@
 
                             const updatedChatHistory = await response.json();
                             renderChatHistory(updatedChatHistory);
+                            console.log('Message sent successfully');
                         } catch (error) {
                             console.error('Error sending message:', error);
                         }
@@ -801,8 +803,6 @@
                             .catch(error => console.error('Error fetching GUI:', error));
                     }
                     fetchAndUpdateGui()
-                    // Fetch the GUI every 4 seconds
-                    setInterval(fetchAndUpdateGui, 4000);
         </script>
     </head>
 

@@ -5,6 +5,7 @@ temp_*
 credentials.json
 reminders.pkl
 */__pycache__/*
+__pycache__/*
 .vscode/*
 chat_history.json
 token.json

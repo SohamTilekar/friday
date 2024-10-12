@@ -6,8 +6,10 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 import os.path
 from langchain_core.tools import tool as tool_decorator
+from langchain_core.pydantic_v1 import BaseModel, Field
 import os
 from googleapiclient.errors import HttpError
+from sqlalchemy import desc
 
 
 SCOPES = ["https://mail.google.com/"]
@@ -29,17 +31,14 @@ with open("token.json", "w") as token:
 # Initialize and store the Gmail API client
 gmail_service = build("gmail", "v1", credentials=creds)
 
+class ReplyEmail(BaseModel):
+    message_id: str = Field(..., description="The ID of the email thread to reply to.")
+    reply_text: str = Field(..., description="The text content of the reply.")
 
-@tool_decorator
+@tool_decorator("reply_email", args_schema=ReplyEmail)
 def reply_email(message_id: str, reply_text: str) -> str:
     """
     Use this tool to reply to an email thread.
-    Args:
-        thread_id (str): The ID of the email thread to reply to.
-        reply_text (str): The text content of the reply.
-
-    Returns:
-        str
     """
     try:
         message = (
@@ -61,17 +60,13 @@ def reply_email(message_id: str, reply_text: str) -> str:
     except Exception as e:
         return f"An Error Occurred Error: {e}"
 
+class MarkSpam(BaseModel):
+    message_id: str = Field(..., description="The ID of the email message to mark as spam.")
 
-@tool_decorator
+@tool_decorator("mark_spam", args_schema=MarkSpam)
 def mark_spam(message_id: str) -> str:
     """
     Use this tool to mark an email as spam.
-
-    Args:
-        message_id (str): The ID of the email message to mark as spam.
-
-    Returns:
-        str
     """
     try:
         global gmail_service
@@ -84,19 +79,15 @@ def mark_spam(message_id: str) -> str:
     except Exception as e:
         return f"An error occurred: {e}"
 
+class DraftEmail(BaseModel):
+    subject: str = Field(..., description="The subject of the email.")
+    body: str = Field(..., description="The body content of the email.")
+    to: str = Field(..., description="The recipient email address.")
 
-@tool_decorator
+@tool_decorator("draft_email", args_schema=DraftEmail)
 def draft_email(subject: str, body: str, to: str) -> str:
     """
     Use this tool to draft an email with the given subject and body content.
-
-    Args:
-        subject (str): The subject of the email.
-        body (str): The body content of the email.
-        to (str): The recipient email address.
-
-    Returns:
-        str
     """
     try:
         global gmail_service
@@ -121,19 +112,15 @@ def draft_email(subject: str, body: str, to: str) -> str:
     except Exception as e:
         return f"An unexpected error occurred: {e}"
 
+class SendEmail(BaseModel):
+    to: str = Field(..., description="The recipient's email address.")
+    subject: str = Field(..., description="The subject of the email.")
+    body: str = Field(..., description="The body content of the email.")
 
-@tool_decorator
+@tool_decorator("send_email", args_schema=SendEmail)
 def send_email(to: str, subject: str, body: str) -> str:
     """
     Use this tool to send an email with the given subject and body content.
-
-    Args:
-        to (str): The recipient's email address.
-        subject (str): The subject of the email.
-        body (str): The body content of the email.
-
-    Returns:
-        str
     """
     try:
         global gmail_service
@@ -158,17 +145,13 @@ def send_email(to: str, subject: str, body: str) -> str:
     except Exception as e:
         return f"An unexpected error occurred: {e}"
 
+class MarkRead(BaseModel):
+    message_id: str = Field(..., description="The ID of the email message to mark as read.")
 
-@tool_decorator
+@tool_decorator("mark_read", args_schema=MarkRead)
 def mark_read(message_id: str) -> str:
     """
     Use this tool to mark an email as read.
-
-    Args:
-        message_id (str): The ID of the email message to mark as read.
-
-    Returns:
-        str
     """
     try:
         global gmail_service
@@ -179,17 +162,13 @@ def mark_read(message_id: str) -> str:
     except Exception as e:
         return f"An error occurred: {e}"
 
+class SearchEmails(BaseModel):
+    query: str = Field(..., description="Email search query string, a query to search for emails.")
 
-@tool_decorator
+@tool_decorator("search_emails", args_schema=SearchEmails)
 def search_emails(query: str) -> list[dict]:
     """
     Use this tool to search for emails based on a query string.
-
-    Args:
-        query (str): Search query string (e.g., 'from:someone@example.com').
-
-    Returns:
-        list[dict]: A list of dictionaries containing message IDs and snippets.
     """
     global gmail_service
     results = gmail_service.users().messages().list(userId="me", q=query).execute()
@@ -204,49 +183,39 @@ def search_emails(query: str) -> list[dict]:
 
     return email_data
 
+class StarEmail(BaseModel):
+    message_id: str = Field(..., description="The ID of the email message to star.")
 
-@tool_decorator
+@tool_decorator("star_email", args_schema=StarEmail)
 def star_email(message_id: str) -> str:
     """
     Use this tool to star an email.
-
-    Args:
-        message_id (str): The ID of the email message to star.
-
-    Returns:
-        str
     """
     global gmail_service
     gmail_service.users().messages().modify(
         userId="me", id=message_id, body={"addLabelIds": ["STARRED"]}
     ).execute()
 
+class UnstarEmail(BaseModel):
+    message_id: str = Field(..., description="The ID of the email message to unstar.")
 
-@tool_decorator
+@tool_decorator("unstar_email", args_schema=UnstarEmail)
 def unstar_email(message_id: str) -> str:
     """
     Use this tool to unstar an email.
-
-    Args:
-        message_id (str): The ID of the email message to unstar.
-
-    Returns:
-        str
     """
     global gmail_service
     gmail_service.users().messages().modify(
         userId="me", id=message_id, body={"removeLabelIds": ["STARRED"]}
     ).execute()
 
+class PermanentlyDeleteEmail(BaseModel):
+    message_id: str = Field(..., description="The ID of the email message to delete.")
 
-@tool_decorator
+@tool_decorator("permanently_delete_email", args_schema=PermanentlyDeleteEmail)
 def permanently_delete_email(message_id: str):
     """\
     Use this tool to permanently delete an email.
-    Args:
-        message_id (str): The ID of the email message to delete.
-    Returns:
-        str: A message indicating the success or failure of the operation.
     """
     try:
         gmail_service.users().messages().delete(userId="me", id=message_id).execute()
@@ -254,15 +223,13 @@ def permanently_delete_email(message_id: str):
     except Exception as error:
         return f"An error occurred: {error}"
 
+class TrashEmail(BaseModel):
+    message_id: str = Field(..., description="The ID of the email message to delete.")
 
-@tool_decorator
+@tool_decorator("trash_email", args_schema=TrashEmail)
 def trash_email(message_id: str):
     """\
     Use this tool to put emails in trash.
-    Args:
-        message_id (str): The ID of the email message to delete.
-    Returns:
-        str: A message indicating the success or failure of the operation.
     """
     try:
         gmail_service.users().messages().trash(userId="me", id=message_id).execute()

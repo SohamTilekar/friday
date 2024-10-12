@@ -3,7 +3,9 @@ from rich import print
 import schedule
 import time
 from langchain_core.tools import tool as tool_decorator
+from langchain_core.pydantic_v1 import BaseModel, Field
 from typing import Literal, Optional
+import global_shares
 import os
 
 
@@ -115,7 +117,15 @@ def create_popup(message: str):
     app = ReminderPopup(message)
     app.mainloop()
 
-@tool_decorator
+class CreateReminder(BaseModel):
+    message: str = Field(..., title="Reminder Message", description="The reminder message to display.")
+    interval_type: Literal["minute", "hour", "day", "week"] = Field(..., title="Interval Type", description="Defines the type of interval ('minute', 'hour', 'day', 'week').")
+    interval: Optional[int | list[Literal["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]] | str] = Field(None, title="Interval", description="The value of the interval.")
+    specific_time: Optional[str] = Field(None, title="Specific Time", description="The time in 'HH:MM' format when the reminder should trigger (used for 'day', 'week').")
+    for_user_or_ai: Literal["user", "ai"] = Field("user", title="For User or AI", description="Specify whether the reminder is for the user or the AI.")
+    once: bool = Field(False, title="Once", description="If True, the reminder will trigger only once. Default is False.")
+
+@tool_decorator("create_reminder", args_schema=CreateReminder)
 def create_reminder(
     message: str,
     interval_type: Literal["minute", "hour", "day", "week"] = "minute",
@@ -163,7 +173,7 @@ def create_reminder(
     - create_reminder("Meeting", interval_type="day", interval=1, specific_time="10:00", once=True)
     """
     if for_user_or_ai == "ai":
-        call_routine(
+        global_shares["call_routine"](
             reason="state_change", type="reminder", message=message
         )  # AI is called directly
 
@@ -292,8 +302,11 @@ def get_reminders() -> list[str]:
         reminders.append(reminder)
     return reminders
 
+class CancelReminder(BaseModel):
+    reminder_id: str = Field(..., title="Reminder ID", description="The ID of the reminder to cancel.")
+    forever_or_next: Literal["forever", "next"] = Field("forever", title="Forever or Next", description="Specify whether to cancel the reminder forever or only the next occurrence. Default is 'forever'.")
 
-@tool_decorator
+@tool_decorator("cancel_reminder", args_schema=CancelReminder)
 def cancel_reminder(
     reminder_id: str, forever_or_next: Literal["forever", "next"] = "forever"
 ) -> str:

@@ -14,10 +14,10 @@ import datetime
 from difflib import get_close_matches
 from groq import Groq
 import google.generativeai as genai
-from langchain_core.tools import tool as tool_decorator
 from typing import Callable
 import random as rand
 from langchain.agents import load_tools
+from langchain_core.pydantic_v1 import BaseModel, Field
 import time
 from config import __ai_dir__
 import PIL.Image as PILI
@@ -30,47 +30,31 @@ from config import load_config
 
 groq_api, _ = load_config()
 
-
-@tool_decorator
-def current_time():
+@tool_decorator("get_current_time")
+def current_time(*args, **kwargs):
     """\
-    Use this tool to get the current time in 24-hour clock format: HH:MM
-    Args:
-        None
+    Use this tool to get the current time in the format: HH:MM
     """
     return "current time is " + datetime.datetime.now().strftime("%H:%M")
 
-
-@tool_decorator
-def current_date():
+@tool_decorator("get_current_date")
+def current_date(*args, **kwargs):
     """\
     Use this tool to get the current date in the format: DD/Month/YYYY
-    Args:
-        None
     """
     return "current date is " + datetime.datetime.now().strftime("%d/%B/%Y")
 
 
-@tool_decorator
-def randint(a: int, b: int):
+class RandInt(BaseModel):
+    a: int = Field(..., description="Minimum value for the random number")
+    b: int = Field(..., description="Maximum value for the random number")
+
+@tool_decorator("get_random_number", args_schema=RandInt)
+def randint(a: int, b: int, *args, **kwargs):
     """\
     Use this tool to get a random integer between a and b (inclusive).
-    Args:
-        a: The lower bound of the range.
-        b: The upper bound of the range.
     """
     return "random number generated is " + str(rand.randint(a, b))
-
-
-@tool_decorator
-def random():
-    """\
-    Use this tool to get a random float between 0 and 1.
-    Args:
-        None
-    """
-    return "random number between 0 & 1 is " + f"{rand.random():.5f}"
-
 
 emoji_map = {
     "Smile": "1f600",
@@ -156,95 +140,98 @@ emoji_map = {
     "Money": "1f911",
 }
 
+class Emojify(BaseModel):
+    face_type: str = Field(..., description="The type of face you want to generate an emoji for"
+"""\
+Possible face types:
+- Smile
+- Smile-with-big-eyes
+- Grin
+- Grinning
+- Laughing
+- Grin-sweat
+- Joy
+- Rofi
+- Loudly-crying
+- Wink
+- Heart
+- Heart-eyes
+- Star-struck
+- Partying
+- Melting
+- Upside-down
+- Slightly-smile
+- Happy-cry
+- Holding-back-tears
+- Blush
+- Warm-smile
+- Relieved
+- Smirk
+- Drool
+- Yum
+- Stuck-out-tongue
+- Squinting-tongue
+- Winky-tongue
+- Zany
+- Woozy
+- Pensive
+- Pleading
+- Grimacing
+- Expressionless
+- Neutral
+- Zipper
+- Salute
+- Thinking
+- Shushing
+- Hand-over-mouth
+- Smiling-eyes-with-hand-over-mouth
+- Yawn
+- Hug
+- Peeking
+- Screaming
+- Raised-eyebrow
+- Monocle
+- Unamused
+- Exhale:
+- Triumph
+- Angry
+- Rage
+- Cursing
+- Sad
+- Sweat
+- Worried
+- Concerned
+- Cry
+- Big-frown
+- Frown
+- Anxious-with-sweat
+- Scared
+- Anguished
+- Surprised
+- Astonished
+- Flushed
+- Mind-blown
+- X-eyes
+- Dizzy:
+- Shaking
+- Cold
+- Hot
+- Sick
+- Vomit
+- Sleep
+- Sleepy
+- Mask
+- Halo
+- Clown
+- Nerd
+- Money
+"""
+)
 
-@tool_decorator
-def emojify(face_type: str) -> tuple[None | str, str]:
+@tool_decorator("emojify", args_schema=Emojify)
+def emojify(face_type: str, *args, **kwargs) -> tuple[None | str, str]:
     """\
     Use this tool to get an emoji based on the face type.
-    Args:
-        face_type: The type of face you want to generate an emoji for.
-            Possible face types:
-            - Smile
-            - Smile-with-big-eyes
-            - Grin
-            - Grinning
-            - Laughing
-            - Grin-sweat
-            - Joy
-            - Rofi
-            - Loudly-crying
-            - Wink
-            - Heart
-            - Heart-eyes
-            - Star-struck
-            - Partying
-            - Melting
-            - Upside-down
-            - Slightly-smile
-            - Happy-cry
-            - Holding-back-tears
-            - Blush
-            - Warm-smile
-            - Relieved
-            - Smirk
-            - Drool
-            - Yum
-            - Stuck-out-tongue
-            - Squinting-tongue
-            - Winky-tongue
-            - Zany
-            - Woozy
-            - Pensive
-            - Pleading
-            - Grimacing
-            - Expressionless
-            - Neutral
-            - Zipper
-            - Salute
-            - Thinking
-            - Shushing
-            - Hand-over-mouth
-            - Smiling-eyes-with-hand-over-mouth
-            - Yawn
-            - Hug
-            - Peeking
-            - Screaming
-            - Raised-eyebrow
-            - Monocle
-            - Unamused
-            - Exhale:
-            - Triumph
-            - Angry
-            - Rage
-            - Cursing
-            - Sad
-            - Sweat
-            - Worried
-            - Concerned
-            - Cry
-            - Big-frown
-            - Frown
-            - Anxious-with-sweat
-            - Scared
-            - Anguished
-            - Surprised
-            - Astonished
-            - Flushed
-            - Mind-blown
-            - X-eyes
-            - Dizzy:
-            - Shaking
-            - Cold
-            - Hot
-            - Sick
-            - Vomit
-            - Sleep
-            - Sleepy
-            - Mask
-            - Halo
-            - Clown
-            - Nerd
-            - Money
     """
     # Find the closest match for the face_type
     closest_match = get_close_matches(face_type, emoji_map.keys(), n=1)
@@ -309,41 +296,68 @@ def dir_tree(
 
 client = Groq(api_key=groq_api)
 
+class QueryImg(BaseModel):
+    query: str = Field(..., description="Query about the image, e.g. 'what is in the image?', 'is there a cat in the image?', 'What is common in this 2 images', etc.")
+    path: str | list[str] = Field(..., description="Path of the image or multyple image, e.g. 'user_upload/image_id.png'. Pass as a string for querying only 1 image. For querying multiple images, pass the list of strings e.g ['user_upload/image_id1.png', 'user_upload/image_id2.png'].")
 
-@tool_decorator
-def query_image(query: str, path: str | list[str]):
+@tool_decorator("query_img", args_schema=QueryImg)
+def query_image(query: str, path: str | list[str], *args, **kwargs):
     """\
     Use this tool to query an image from the web and save it to the specified path.
-    Args:
-        query: query about the image e.g. 'what is in the image?'
-        path: path of the image e.g. 'user_upload/image_id.png' pass as a string for querying only 1 image for querying multiple images pass the list of string.
-    Returns:
-        The answer to the query about the image.
     """
     if isinstance(path, str):
         img_file = PILI.open(__ai_dir__ / Path(path.split("/", 1)[1]))
-        return llms.gen1_5_flash.generate_content([img_file, query]).text
+        for _ in range(3):
+            try:
+                return llms.gen1_5_flash_.generate_content([img_file, query]).text
+            except Exception as e:
+                continue
+        for _ in range(3):
+            try:
+                return llms.gen1_5_flash_8b_.generate_content([img_file, query]).text
+            except Exception as e:
+                continue
+        for _ in range(3):
+            try:
+                return llms.gemini_1_5_pro_.generate_content([img_file, query]).text
+            except Exception as e:
+                continue
+        return "Failed to generate content for the image."
     else:
         paths = path
         img_files = []
         for path in paths:
             img_files.append(PILI.open(__ai_dir__ / Path(path.split("/", 1)[1])))
-        return llms.gen1_5_flash.generate_content([*img_files, query]).text
+        for _ in range(3):
+            try:
+                return llms.gen1_5_flash_.generate_content([*img_file, query]).text
+            except Exception as e:
+                continue
+        for _ in range(3):
+            try:
+                return llms.gen1_5_flash_8b_.generate_content([*img_file, query]).text
+            except Exception as e:
+                continue
+        for _ in range(3):
+            try:
+                return llms.gemini_1_5_pro_.generate_content([*img_file, query]).text
+            except Exception as e:
+                continue
+        return "Failed to generate content for the image."
 
 
-@tool_decorator
-def query_audio(query: str, path: str | list[str]):
+class QueryAudio(BaseModel):
+    query: str = Field(..., description="Query about the audio, e.g. 'what is in the audio?', 'give me the emotion which is in this audio', etc.")
+    path: str | list[str] = Field(..., description="Path of the audio or multyple audio, e.g. 'user_upload/audio_id.mp3'. Pass as a string for querying only 1 audio. For querying multiple audios, pass the list of strings e.g ['user_upload/audio_id1.mp3', 'user_upload/audio_id2.mp3'].")
+
+@tool_decorator("query_audio", args_schema=QueryAudio)
+def query_audio(query: str, path: str | list[str], *args, **kwargs):
     """\
     Use this tool to query an audio from the web and save it to the specified path.
-    Args:
-        query: query about the audio e.g. 'what is in the audio?', 'give me the emotion which is in this audio'
-        path: path of the audio e.g. 'user_upload/audio_id.png' pass as a string for querying only 1 audio for querying multiple audios pass the list of string.
-    Returns:
-        The answer to the query about the audio.
     """
     if isinstance(path, str):
         audio_file = {"mime_type": "audio/mp3", "data": Path(path).read_bytes()}
-        return llms.gen1_5_flash.generate_content([audio_file, query]).text
+        return llms.gen1_5_flash_.generate_content([audio_file, query]).text
     else:
         paths = path
         audio_files = []
@@ -351,20 +365,32 @@ def query_audio(query: str, path: str | list[str]):
             audio_files.append(
                 {"mime_type": "audio/mp3", "data": Path(path).read_bytes()}
             )
-        return llms.gen1_5_flash.generate_content([*audio_files, query]).text
+        for _ in range(3):
+            try:
+                return llms.gen1_5_flash_.generate_content([*audio_file, query]).text
+            except Exception as e:
+                continue
+        for _ in range(3):
+            try:
+                return llms.gen1_5_flash_8b_.generate_content([*audio_file, query]).text
+            except Exception as e:
+                continue
+        for _ in range(3):
+            try:
+                return llms.gemini_1_5_pro_.generate_content([*audio_file, query]).text
+            except Exception as e:
+                continue
+        return "Failed to generate content for the audio."
 
+
+class QueryVideo(BaseModel):
+    query: str = Field(..., description="Query about the video, e.g. 'summarize the video', 'transcribe the audio'.")
+    path: str = Field(..., description="Path of the video file, e.g. 'user_upload/video_id.mp4'.")
 
 @tool_decorator
-def query_video(query: str, path: str):
+def query_video(query: str, path: str, *args, **kwargs):
     """\
     Use this tool to query a video from the web and get the generated response.
-    
-    Args:
-        query: query about the video e.g. 'summarize the video', 'transcribe the audio'.
-        path: path of the video file e.g. 'user_upload/video_id.mp4'.
-    
-    Returns:
-        The generated content based on the video and query.
     """
     # Upload the video file
     video_file = genai.upload_file(path=__ai_dir__ / Path(path.split("/", 1)[1]))
@@ -377,22 +403,33 @@ def query_video(query: str, path: str):
         raise ValueError("Video processing failed")
 
     # Generate content with the video and the prompt
-    response = llms.gen1_5_flash.generate_content(
-        [video_file, query], request_options={"timeout": 600}
-    )
-
-    # Return the response text
-    return response.text
+    for _ in range(3):
+        try:
+            return llms.gen1_5_flash_.generate_content([video_file, query]).text
+        except Exception as e:
+            continue
+    for _ in range(3):
+        try:
+            return llms.gen1_5_flash_8b_.generate_content([video_file, query]).text
+        except Exception as e:
+            continue
+    for _ in range(3):
+        try:
+            return llms.gemini_1_5_pro_.generate_content([video_file, query]).text
+        except Exception as e:
+            continue
+    return "Failed to generate content for the video."
 
 
 # DuckDuckGo Search
 ddg_runner = DuckDuckGoSearchRun()
 
+class DDGQuery(BaseModel):
+    query: str = Field(..., description="Query to search on DuckDuckGo.")
 
-@tool_decorator
-def search_ddg(query: str) -> str:
+@tool_decorator("search_ddg", args_schema=DDGQuery)
+def search_ddg(query: str, *args, **kwargs) -> str:
     """
-    A wrapper around DuckDuckGo Search.
     Useful for when you need to answer questions about current events.
     """
 
@@ -415,19 +452,39 @@ def search_ddg(query: str) -> str:
 
 wikipedia_runner = WikipediaQueryRun(api_wrapper=WikipediaAPIWrapper(doc_content_chars_max=8000))  # type: ignore
 
+class WikipediaQuery(BaseModel):
+    query: str = Field(..., description="Query to search on Wikipedia.")
 
-@tool_decorator
-def search_wikipedia(query: str) -> str:
+@tool_decorator("search_wikipedia", args_schema=WikipediaQuery)
+def search_wikipedia(query: str, *args, **kwargs) -> str:
     """
-    A wrapper around Wikipedia.
     Useful for when you need to answer general questions about people, places, companies, facts, historical events, or other subjects.
-    Input should be a search query.
     """
-    return str(
-        llms.llama_3_1_8b_instant.invoke(
-            f"write the very short summarize of the Wikipedia Search Result's Without Loosing Detail, Result:{str(wikipedia_runner.invoke(query))}"
-        ).content
-    )
+    for _ in range(3):
+        try:
+            return str(
+                llms.llama_3_1_8b_instant.invoke(
+                    f"write the very short summarize of the Wikipedia Search Result's Without Loosing Detail, Result:{str(wikipedia_runner.invoke(query))}"
+                ).content
+            )
+        except Exception as e:
+            continue
+    for _ in range(3):
+        try:
+            return llms.gen1_5_flash_8b_.generate_content([query]).text
+        except Exception as e:
+            continue
+    for _ in range(3):
+        try:
+            return llms.gemini_1_5_pro_.generate_content([query]).text
+        except Exception as e:
+            continue
+    for _ in range(3):
+        try:
+            return llms.gen1_5_flash_.generate_content([query]).text
+        except Exception as e:
+            continue
+    return "Failed to search on wikipedia."
 
 
 arxiv_retriever = ArxivRetriever(
@@ -435,45 +492,85 @@ arxiv_retriever = ArxivRetriever(
     get_full_documents=True,
 )  # type: ignore
 
+class SearchArxiv(BaseModel):
+    query: str = Field(..., description="Query to search on ArXiv.")
 
-@tool_decorator
-def search_arxiv(query: str):
+@tool_decorator("search_arxiv", args_schema=SearchArxiv)
+def search_arxiv(query: str, *args, **kwargs):
     """
-    A wrapper around ArXiv.
     Useful for when you need to answer questions about scientific papers.
-    Input should be a search query.
     """
     doc = arxiv_retriever.run(query)
-    return str(
-        llms.llama_3_1_8b_instant.invoke(
-            f"write the detail structured notes Include the Metadata of the Arxiv Search Result's, Result:\n{doc}"
-        ).content
-    )
+    for _ in range(3):
+        try:
+            return str(
+                llms.llama_3_1_8b_instant.invoke(
+                    f"write the detail structured notes Include the Metadata of the Arxiv Search Result's, Result:\n{doc}"
+                ).content
+            )
+        except Exception as e:
+            continue
+    for _ in range(3):
+        try:
+            return llms.gen1_5_flash_8b_.generate_content([doc]).text
+        except Exception as e:
+            continue
+    for _ in range(3):
+        try:
+            return llms.gemini_1_5_pro_.generate_content([doc]).text
+        except Exception as e:
+            continue
+    for _ in range(3):
+        try:
+            return llms.gen1_5_flash_.generate_content([doc]).text
+        except Exception as e:
+            continue
+    return "Failed to search on arxiv."
 
 
 pubmed_runner = PubmedQueryRun()
 
+class PubmedQuery(BaseModel):
+    query: str = Field(..., description="Query to search on PubMed.")
 
-@tool_decorator
-def search_pubmed(query: str) -> str:
+@tool_decorator("search_pubmed", args_schema=PubmedQuery)
+def search_pubmed(query: str, *args, **kwargs) -> str:
     """
-    A wrapper around PubMed.
     Useful for when you need to answer questions about medicine, health, and biomedical topics from biomedical literature, MEDLINE, life science journals, and online books.
-    Input should be a search query.
     """
-    return str(
-        llms.llama_3_1_8b_instant.invoke(
-            f"write the very short summarize of the PubMed Search Result's Without Loosing Detail, Result:{str(pubmed_runner.invoke(query))}"
-        ).content
-    )
+    for _ in range(3):
+        try:
+            return str(
+                llms.llama_3_1_8b_instant.invoke(
+                    f"write the very short summarize of the PubMed Search Result's Without Loosing Detail, Result:{str(pubmed_runner.invoke(query))}"
+                ).content
+            )
+        except Exception as e:
+            continue
+    for _ in range(3):
+        try:
+            return llms.gen1_5_flash_8b_.generate_content([query]).text
+        except Exception as e:
+            continue
+    for _ in range(3):
+        try:
+            return llms.gemini_1_5_pro_.generate_content([query]).text
+        except Exception as e:
+            continue
+    for _ in range(3):
+        try:
+            return llms.gen1_5_flash_.generate_content([query]).text
+        except Exception as e:
+            continue
+    return "Failed to search on pubmed."
 
+class GUIUpdate(BaseModel):
+    what_to_update: str = Field(..., description="The content you want to update the GUI with.")
 
-@tool_decorator
-def gui_updater(what_to_update: str):
+@tool_decorator("gui_updater", args_schema=GUIUpdate)
+def gui_updater(what_to_update: str="", *args, **kwargs):
     """\
     Use this tool to update the GUI, Pass whatever you want to update the GUI with.
-    Args:
-        what_to_update: The content you want to update the GUI with.
     """
     global_shares["call_routine"]("ai_called_by_user", what_to_update=what_to_update)  # type: ignore
 
@@ -490,7 +587,6 @@ tools: list[Callable] = [
     current_time,
     current_date,
     randint,
-    random,
     send_email,
     search_emails,
     draft_email,

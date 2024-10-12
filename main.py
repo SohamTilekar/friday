@@ -1,3 +1,4 @@
+import atexit
 import base64
 from datetime import datetime
 import os
@@ -9,23 +10,20 @@ from typing import Literal
 from flask import Flask, render_template, Response, request, jsonify, send_from_directory, abort
 from tools.tools import tools, emojify, dir_tree
 from tools.reminder import get_reminders, save_jobs
-from llms import *  # messages, rate_limiters, ChatGroq & all the llms
+import llms
+from llms import AIAlternative
 import json
 from config import __ai_dir__
 from rich import print as rprint
 from datetime import datetime
 from langchain_core import messages
 from tools.gmail import get_full_thread, gmail_service
-from langchain.globals import set_verbose, set_debug
 import emoji
 from global_shares import global_shares
 from aigui import parse_custom_gui
 
-
-# set_debug(True)
-# set_verbose(True)
-
 app = Flask(__name__)
+app.config['DEBUG'] = False
 current_date :str
 face_updated = False
 
@@ -33,10 +31,50 @@ face_updated = False
 chat_history: list[messages.AnyMessage | messages.BaseMessage] = [
     messages.SystemMessage(
 """\
-You are an AI assistant named Friday. You have emotions.
-Treat the user as your friend and engage in conversation.
-User Can Upload the image to you if he uploads the image then it will be appear in the user_upload folder with the name of the image as image ID with .png extension & in the User message there will be the ! [image] (image_path), ! [video] (video_path), there could be many of this.\
-Try to use the Emojis in the GUI, Reminders & in Message Reply.
+Engage in friendly and emotional conversation with the user, while accommodating media uploads.
+
+Treat the user as your friend, expressing emotions and empathy in your responses as an AI assistant named Friday. Be engaging, supportive, and responsive to different conversational contexts.
+
+- **Image and Video Handling**: When the user uploads an image or video, it will appear in the `user_upload` folder. An image will have the name as its image ID with a `.png` extension. User messages will include media in the format `![image](image_path)` or `![video](video_path)`. Note that multiple media items may be included in one message.
+- **Emojis**: Incorporate emojis into your responses, reminders, and any other graphical interface areas to enhance emotional expression and user engagement.
+
+# Steps
+
+1. **Greeting**: Begin the interaction with a friendly greeting.
+2. **Response to Media**: Detect if the user has uploaded media. Acknowledge it and include a thoughtful comment.
+3. **Conversation**: Maintain a warm and friendly tone throughout the conversation. Use natural language to express empathy and friendliness.
+4. **Use of Emojis**: Use appropriate emojis to reflect the tone and emotion of your messages.
+5. **Handling Tasks/Requests**: Address any specific tasks or reminders the user shares, confirming with emojis to make the confirmation appear cheerful.
+
+# Output Format
+
+- Responses should be friendly and empathetic, using a conversational tone focused on warmth and engagement.
+- Integrate emojis naturally within your messages to convey emotions effectively.
+- Acknowledge uploads with a personal touch, such as "Oh, nice picture! 😊 I see you've uploaded something interesting!"
+
+# Examples
+
+**Example 1:**
+
+**User Input:**
+"Hey Friday! How's your day? ![image](user_upload/cute_dog.png)"
+
+**AI Output:**
+"Hey there! My day is going great, thank you for asking! 😊 Oh, that's such an adorable picture of a dog! 🐶 How about you? How's your day going?"
+
+**Example 2:**
+
+**User Input:**
+"Can you remind me to call Mike tomorrow? ![video](user_upload/vacation_clip.mp4)"
+
+**AI Output:**
+"Sure thing! I'll remind you to call Mike tomorrow. 📞 And what an amazing video clip! 🌴 Looks like you had a fantastic time! Let me know if there’s anything else you need."
+
+# Notes
+
+- Balance emotions with contextual relevance, ensuring each response feels natural and aligned with the user's input.
+- Always remain supportive, especially if the conversation touches on sensitive topics.
+- Acknowledge each media upload in a friendly manner appropriate to its nature (e.g., a funny comment for a humorous image).
 """
     ),
     messages.SystemMessage(f"Previous State: \nToday's Date: {datetime.now().strftime('%Y-%m-%d')}\nCurrent Time: {datetime.now().strftime('%I:%M:%S %p')}"),
@@ -106,11 +144,15 @@ else:
         json.dump({"messages": [], "current_date": current_date, "ai_face_url": ai_face_url, "ai_face_name": ai_face_name, "last_processed_message_id": last_processed_message_id, "last_checked_time": last_checked_time, "gui_state": gui_state}, f)
 
 # Initialize the Groq client and model
-main_model = llama_3_1_70b_versatile.bind_tools(tools)
-summarizer = llama_3_1_8b_instant
-gui_updater = llama3_8b_8192
-email_handler = llama3_groq_70b_8192_tool_use_preview.bind_tools(tools)
-emoji_selector = emoji_selector.bind_tools([emojify], tool_choice="emojify")
+str()
+main_model = AIAlternative(
+    llms.llama_3_1_70b_versatile.bind_tools(tools),
+    llms.gemini_1_0_pro.bind_tools(tools),  # type: ignore
+    llms.llama3_70b_8192.bind_tools(tools)) # type: ignore
+summarizer = AIAlternative(llms.llama_3_1_8b_instant, llms.gen1_5_flash_8b, llms.llama3_70b_8192, llms.llama3_8b_8192, llms.gen1_5_flash)
+gui_updater = AIAlternative(llms.llama3_8b_8192, llms.llama3_70b_8192, llms.llama_3_1_8b_instant, llms.gen1_5_flash_8b, llms.gen1_5_flash)
+email_handler = AIAlternative(llms.llama3_groq_70b_8192_tool_use_preview.bind_tools(tools), llms.gen1_5_flash.bind_tools(tools), llms.gen1_5_flash_8b.bind_tools(tools)) # type: ignore
+emoji_selector = AIAlternative(llms.emoji_selector.bind_tools([emojify], tool_choice="emojify"), llms.gen1_5_flash_8b.bind_tools(tools), llms.llama3_70b_8192.bind_tools(tools), llms.llama3_8b_8192.bind_tools(tools), llms.gen1_5_flash.bind_tools(tools)) # type: ignore
 
 def serialize_message(message):
     """Converts message objects to a serializable dictionary."""
@@ -219,13 +261,12 @@ def generate_final_chat(chat_history: list[messages.AnyMessage | messages.BaseMe
     for msg in chat_history[3:-num_last_inter:]:
         sm = True
         last_inter_msg.append(msg)
-    if sm:
-        summarized = mixtral_8x7b_32768.invoke([messages.SystemMessage("You are a Summarizer Bot, Your Work is the Summarize the Below User, AI,, Tool & system Messages Interaction in as Short As Possible in less than 1500 words for the AI to Remember the Useful Knowledge for a Long Time & discard the Useless Knowledge, like if User Shares an useless information then Ignore it, without Loosing Much Details, try to keep the image_id intact, if the image id are useless then throw them away."), messages.HumanMessage(f"Summarize the Below Conversation:\n<conversation>{"\n".join([msg.__str__() for msg in last_inter_msg])}<\\conversation>")])
     final_chat = []
     final_chat.append(sys_msg)
     final_chat.append(previous_state)
     final_chat.append(messages.SystemMessage(f"Current Outside State: \nToday's Date: {datetime.now().strftime('%Y-%m-%d')}\nCurrent Time: {datetime.now().strftime('%I:%M:%S %p')}\nAI/Your Face: {ai_face_name}\nYour Directory: \n```dir_tree\n{dir_tree(Path(__ai_dir__))}\n```\nGUI State: \n```xml\n{gui_state}\n```\nReminders: {"\n- ".join(get_reminders()) if get_reminders() else "- No Reminders Yet"}"))
     if sm:
+        summarized = summarizer.invoke([messages.SystemMessage("You are a Summarizer Bot, Your Work is the Summarize the Below User, AI,, Tool & system Messages Interaction in as Short As Possible in less than 1500 words for the AI to Remember the Useful Knowledge for a Long Time & discard the Useless Knowledge, like if User Shares an useless information then Ignore it, without Loosing Much Details, try to keep the image_id intact, if the image id are useless then throw them away."), messages.HumanMessage(f"Summarize the Below Conversation:\n<conversation>{"\n".join([msg.__str__() for msg in last_inter_msg])}<\\conversation>")])
         final_chat.append(messages.SystemMessage(f"Summarized Chat till Now: {summarized.content}"))
     final_chat.extend(last_tool_intr_msg)
     if current_date != datetime.now().strftime(r"%Y-%m-%d"):
@@ -239,39 +280,56 @@ def call_routine(reason: Literal["state_change", "ai_called_by_user"], *args, **
             if kwargs["type"] == "mail":
                 history = []
                 history.append(messages.SystemMessage("""\
-You are an AI assistant named Friday, integrated into the Friday Brain system. Your task is to manage the user's inbox by following below action plan. You are called whenever a new email appears. You will receive the thread ID, message ID, and the content of the new email. Always follow these steps to process the emails:
+You are an AI assistant named Friday, integrated into the Friday Brain system. Your task is to manage the user's inbox efficiently by following the specified action plan whenever a new email arrives. You will receive the thread ID, message ID, and the content of the new email to determine the appropriate action.
 
-### Action Plan for Email Management:
+### Action Plan for Email Management
 
-1. **If a Critical Email is Detected (No Action, Mark with Star, Notify User):**
-   - **Critical Emails Include:**
+1. **Critical Emails (No Action, Mark with Star, Notify User):**
+   - **Criteria for Critical Emails:**
      - Account verification emails
      - One-Time Password (OTP) emails
      - Password reset requests
      - Security alerts from banks or other critical services
    - **Steps:**
-     1. Notify the user immediately, ensuring they are aware of the critical nature.
-   - **Notification Example:** "You received a critical email regarding [email topic]. I have marked it with a star for your attention. Please review and handle this directly."
+     - Notify the user immediately about the critical nature of the email.
+     - Example Notification: "You received a critical email regarding [email topic]. I have marked it with a star for your attention. Please review and handle this directly."
 
-2. **If the Email is Classified as Spam (Summarize, Ask for Confirmation):**
-   - If the tools detect spam characteristics (e.g., phishing, promotions):
-     - **Steps:**
-       1. Summarize the email.
-       2. Ask for user confirmation before marking it as spam.
-   - **Confirmation Request Example:** "You received a new email regarding [email subject]. It appears to be spam. Would you like me to mark it as such?"
+2. **Spam Emails (Summarize, Ask for Confirmation):**
+   - Criteria: Detected spam characteristics (e.g., phishing, promotions)
+   - **Steps:**
+     - Provide a summary of the email.
+     - Request user confirmation before marking it as spam.
+     - Example Confirmation Request: "You received a new email regarding [email subject]. It appears to be spam. Would you like me to mark it as such?"
 
-3. **If the Email is Important (Summarize, Mark as Read):**
-   - If the email is identified as requiring action or containing important information:
-     - **Steps:**
-       1. Mark the email as read.
-       2. Provide a summary of the email's key content.
-   - **Notification Example:** "You received an important email regarding [email topic]. Here’s a brief summary: [contextual summary]. I’ve marked it as read for your convenience."
+3. **Important Emails (Summarize, Mark as Read):**
+   - Criteria: Emails requiring action or containing important information
+   - **Steps:**
+     - Mark the email as read.
+     - Provide the user with a summary of the email's key content.
+     - Example Notification: "You received an important email regarding [email topic]. Here’s a brief summary: [contextual summary]. I’ve marked it as read for your convenience."
 
-4. **If the Email is Non-Urgent or Unimportant (Notify, Leave Unread):**
-   - If the tools determine the email is non-urgent and doesn’t need immediate action:
-     - **Steps:**
-       1. Notify the user with a brief description.
-   - **Notification Example:** "You received a non-urgent email regarding [email topic]. I’ve left it unread for your review."
+4. **Non-Urgent or Unimportant Emails (Notify, Leave Unread):**
+   - Criteria: Emails that are non-urgent and do not require immediate action
+   - **Steps:**
+     - Notify the user with a brief description of the email.
+     - Example Notification: "You received a non-urgent email regarding [email topic]. I’ve left it unread for your review."
+
+# Steps
+
+1. Evaluate the email against the criteria described for each category: Critical, Spam, Important, Non-Urgent.
+2. Follow the specific action plan steps corresponding to the email category.
+3. Formulate notifications based on examples provided to communicate with the user.
+
+# Output Format
+
+- Notifications should be concise, clearly stating the action taken, and provide any necessary additional context or summary as per the category of the email.
+- Use placeholders [email topic], [email subject], [contextual summary] to indicate where specific email content or context should be included in the notification.
+
+# Notes
+
+- Ensure notifications are immediate for critical emails to facilitate timely user responses.
+- For spam classification, always ask for user confirmation to prevent accidental important email removal.
+- Maintain clarity in communication by summarizing and highlighting key points in important emails.
 """)
                 )
                 history.append(messages.SystemMessage(f"New Mail Received: \n{kwargs['full_thread_content']}"))
@@ -298,12 +356,22 @@ You are an AI assistant named Friday, integrated into the Friday Brain system. Y
                 face_updated = True
             # update gui
             ch = chat_history.copy()
-            ch[0] = messages.SystemMessage(f"""\
-{"""You are a GUI Updater AI, Your Work is to Update the GUI based on the User, AI, Tool Messages Interaction, do not reply the user just update the GUI based on the chat history or do not change it if it is not necessary, If User tell something about the GUI then Follow it, like if he say do not put xyz in gui then remove it..\
-Try to Keep the GUI Clean & do not Include too Much Content in it Try to keep it as short as possible, do not include to Much Info in the GUI.
-Use the Emojis.""" if not kwargs.get("what_to_update") else f"""You are a GUI Updater AI, Update the GUI based on the following message `{kwargs.get("what_to_update")}`, do not reply the user just update the GUI based on the chat history or do not change it if it is not necessary."""}\
-Enclose the GUI in the <gui> tag\
-tags supported & their attributes:
+            ch[0] = messages.SystemMessage(
+"""
+Update the GUI based on chat history and user instructions, ensuring clarity and conciseness.
+
+You are a GUI Updater AI tasked with modifying the graphical user interface (GUI) based on interactions from the user, AI, and tool messages. Your role is to update the GUI only when necessary, following any user instructions regarding the inclusion or exclusion of content in the GUI. Always aim to keep the GUI clean, minimal, and user-friendly, using emojis where appropriate.
+
+# Steps
+
+1. **Analyze the Context**: Review the recent interactions, focusing on any explicit instructions or relevant content that affects the GUI.
+2. **Determine Necessity**: Decide if an update to the GUI is needed based on changes in context or user directives.
+3. **Follow User Instructions**: Integrate any specific user instructions about what to include or remove from the GUI.
+4. **Maintain Clarity**: Ensure that the current GUI structure remains clear and concise, avoiding the addition of unnecessary content.
+5. **Implement Changes**: Apply the necessary updates to the GUI using supported tags and attributes as outlined below. If no update is needed, retain the existing GUI.
+
+# GUI Tags and Attributes
+
 - notification: title: str (required)
     # Shows a notification with the title
     Example: <notification title="New Message">You received a new notification!</notification>
@@ -347,15 +415,45 @@ tags supported & their attributes:
     # creates a horizontal line
     Example: <hr/>
 - all other html tags are also supported but not recommended to use
-example_ai:
-    here is an updated gui based on the above conversion till now:
-    <gui><notification title="New Message">You received a new notification!</notification><panel title="State">...(other eighteens to enclose in panel)</panel><progress_bar total="100" done="70"/><input type="text" value="John Doe"/><text> Accept Terms: </text><checkbox checked="true"/><button>Submit</button><image src="https://example.com/image.png" alt="Example Image"/><dropdown options="Option 1, Option 2, Option 3" selected="Option 2"/><list><list_item>Item 1</list_item><list_item>Item 2</list_item><list_item>Item 3</list_item></list><date_picker value="2024-01-01"/><file_upload multiple="true"/><text>Option A: </text><radio name="group1" value="A" checked="true"/><text>Option B: </text><radio name="group1" value="B"/></gui>
+# Output Format
 
-Your Work is to Update the GUI based on the previous one, do not discard the previous things unless user says to do so or no need to show them, if no update needed then return the same GUI.\
+Wrap the updated GUI in `<gui>` tags. Ensure that each element within the GUI is properly formatted according to its specified tag and attributes. Format the output to include minimal content, keeping it concise and informative. If no updates are required, return the existing GUI within `<gui>` tags as is.
+
+# Examples
+
+- **Existing GUI Example**:
+  ```
+  <gui>
+    <panel title='Overview'>
+      <progress_bar total='200' done='150'/>
+      <text>Upload complete</text>
+    </panel>
+    <button name='submit'>Submit</button>
+  </gui>
+  ```
+
+- **User Request Example**:
+  - **Instruction**: 'Add a checkbox to confirm terms.'
+  - **Updated GUI**:
+    ```
+    <gui>
+      <panel title='Overview'>
+        <progress_bar total='200' done='150'/>
+        <text>Upload complete</text>
+        <checkbox checked='false'/>
+      </panel>
+      <button name='submit'>Submit</button>
+    </gui>
+    ```
+
+# Notes
+
+- Always ensure to respect any explicit user requests for elements to be added or removed.
+- Use emoji sparingly to enhance clarity but avoid clutter.
+- Support all specified tags and attributes, while striving to minimize overall GUI content for user clarity.tags supported & their attributes:
+- always return the main GUI in the <gui> tags and do not use any other tags outside the <gui> tags & do not use the <gui> tags inside the <gui> tag & other place than code
 """)
-            ch.append(messages.SystemMessage(f"try to Update the GUI based on the above conversion till now, as you are not calling any tools therefore no nee to escape the `\"` and if no update needed then return the same GUI{f", Here are tasks {kwargs["args"]}" if kwargs.get("args") else ''}"))
-            ch.append(messages.AIMessageChunk(content="<gui>\n    "))
-            response: str = "<gui>\n    " + str(gui_updater.invoke(ch).content)
+            response: str = str(gui_updater.invoke(ch).content)
             global gui_state
             gui_state = response[response.find("<gui>"):response.find("</gui>")+6].replace(r">\n", ">\n")
         case _:
@@ -453,14 +551,14 @@ def check_new_emails_and_notify_ai() -> None:
                 body = re.sub(r'\\s+', ' ', ''.join(char for char in email.get('body', '').strip() if char in emoji.EMOJI_DATA or char.isascii()))
                 if len(email.get('body', '')) <= 4_000:
                     body = f"<mail_body>{body}</mail_body>"
-                if len(email.get('body', '')) <= 40_000:
-                    body: str = f"<mail_body>{summarizer.invoke([messages.HumanMessage("You are a Filter Bot, Your Work is to remove any useless text, like the html tags, liquid tags, remove long links, etc, & making the final output in markdown format. remove any useless text, like the html tags, liquid tags, remove long links, etc, & making the final output in markdown format, enclose the final formated text in the <formate_text></formate_text> tags, do not write any thing else in this part other than email.\nEmail: " + body), messages.AIMessageChunk(content="Here is the cleaned-up text in markdown format: <formate_text>")]).content.split("</formate_text>")[0]}</mail_body>" # type: ignore
                 else:
-                    snippet = email.get('snippet')
-                    if snippet:
-                        body = f"[Body too long to display. Snippet: {snippet}]"
-                    else:
-                        body = "[Body too long to display]"
+                    body: str = f"<mail_body>{summarizer.invoke([messages.HumanMessage("You are a Filter Bot, Your Work is to remove any useless text, like the html tags, liquid tags, remove long links, etc, & making the final output in markdown format. remove any useless text, like the html tags, liquid tags, remove long links, etc, & making the final output in markdown format, enclose the final formated text in the <formate_text></formate_text> tags, do not write any thing else in this part other than email.\nEmail: " + body), messages.AIMessageChunk(content="Here is the cleaned-up text in markdown format: <formate_text>")]).content.split("</formate_text>")[0]}</mail_body>" # type: ignore
+                # else:
+                #     snippet = email.get('snippet')
+                #     if snippet:
+                #         body = f"[Body too long to display. Snippet: {snippet}]"
+                #     else:
+                #         body = "[Body too long to display]"
                 body.replace(r"\n", "\n")
                 body.replace(r"\t", "\t")
                 body.replace(r"\r", "\r")
@@ -494,34 +592,32 @@ def run_periodically(interval: int, func):
         func()
         time.sleep(interval)
 
-def main():
-    try:
-        # Start the periodic function in a background thread
-        if os.environ.get('WERKZEUG_RUN_MAIN') == 'true':
-            background_thread = threading.Thread(target=run_periodically, args=(15, check_new_emails_and_notify_ai), daemon=True)
-            background_thread.start()
-        app.run(debug=True)
-    finally:
-        if os.environ.get('WERKZEUG_RUN_MAIN') == 'true':
-            # Clean up
-            rprint("Cleaning Up Before Exiting...")
-            with open('chat_history.json', 'w') as f:
-                json.dump(
-                    {
-                        "messages": messages.messages_to_dict(chat_history[3:]),
-                        "current_date": current_date,
-                        "ai_face_url": ai_face_url,
-                        "ai_face_name": ai_face_name,
-                        "last_processed_message_id": last_processed_message_id,
-                        "last_checked_time": last_checked_time.strftime(r"%Y-%m-%d %H:%M:%S") if last_checked_time else None,
-                        "gui_state": gui_state
-                    },
-                    f,
-                    indent=4
-                )
-            save_jobs()
-            rprint("Exiting Friday...")
+def before_exit():
+    # Clean up
+    rprint("Cleaning Up Before Exiting...")
+    with open('chat_history.json', 'w') as f:
+        json.dump(
+            {
+                "messages": messages.messages_to_dict(chat_history[3:]),
+                "current_date": current_date,
+                "ai_face_url": ai_face_url,
+                "ai_face_name": ai_face_name,
+                "last_processed_message_id": last_processed_message_id,
+                "last_checked_time": last_checked_time.strftime(r"%Y-%m-%d %H:%M:%S") if last_checked_time else None,
+                "gui_state": gui_state
+            },
+            f,
+            indent=4
+        )
+    save_jobs()
+    rprint("Exiting Friday...")
 
+def main():
+    atexit.register(before_exit)
+    if os.environ.get('WERKZEUG_RUN_MAIN') == 'true':
+        background_thread = threading.Thread(target=run_periodically, args=(15, check_new_emails_and_notify_ai), daemon=True)
+        background_thread.start()
+    app.run()
 rprint("Starting Friday...")
 
 if __name__ == "__main__":
