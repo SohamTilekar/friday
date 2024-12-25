@@ -612,13 +612,20 @@ def before_exit():
     save_jobs()
     rprint("Exiting Friday...")
 
-def main():
+def production_run_setup():
+    rprint("Starting Friday...")
     atexit.register(before_exit)
     if os.environ.get('WERKZEUG_RUN_MAIN') == 'true':
         background_thread = threading.Thread(target=run_periodically, args=(15, check_new_emails_and_notify_ai), daemon=True)
         background_thread.start()
-    app.run()
-rprint("Starting Friday...")
+
+def main():
+    rprint("Starting Friday...")
+    atexit.register(before_exit)
+    if os.environ.get('WERKZEUG_RUN_MAIN') == 'true':
+        background_thread = threading.Thread(target=run_periodically, args=(15, check_new_emails_and_notify_ai), daemon=True)
+        background_thread.start()
+    app.run(debug=True)
 
 if __name__ == "__main__":
     main()
